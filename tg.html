@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram: Metaploit</title>
+    <style>
+        :root {
+            --bg-main: #060a10;
+            --bg-block: rgba(10, 20, 32, 0.55); 
+            --bg-hover: rgba(36, 161, 222, 0.15);
+            --tg-blue: #24a1de;
+            --tg-text: #ffffff;
+            --tg-gray: #6d7f92;
+            --chat-bg: rgba(7, 12, 20, 0.3); 
+            --msg-in: rgba(20, 33, 50, 0.75);  
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--tg-text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ЗАДНИЙ ФОН ВСЕГО САЙТА */
+        .fullscreen-bg {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: -2;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            filter: brightness(0.35) contrast(1.1); 
+        }
+
+        /* КОНТЕЙНЕР-СМАРТФОН */
+        .telegram-screen {
+            width: 100%;
+            max-width: 390px;
+            height: 680px;
+            border-radius: 24px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+            overflow: hidden;
+            border: 1px solid rgba(38, 56, 78, 0.4);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            z-index: 1;
+            background: var(--bg-block);
+            backdrop-filter: blur(16px);
+        }
+
+        /* Анимация встряски */
+        .animate-screen-shake {
+            animation: screen-shake-effect 0.4s ease-in-out forwards;
+        }
+
+        @keyframes screen-shake-effect {
+            0% { transform: translateX(0); }
+            15% { transform: translateX(-12px); }
+            30% { transform: translateX(10px); }
+            45% { transform: translateX(-8px); }
+            60% { transform: translateX(6px); }
+            75% { transform: translateX(-3px); }
+            90% { transform: translateX(1px); }
+            100% { transform: translateX(0); }
+        }
+
+        .page {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* ДИНАМИЧЕСКИЙ ХИДЕР ПРОФИЛЯ */
+        .tg-header {
+            padding: 35px 20px 25px 20px;
+            text-align: center;
+            background: rgba(9, 13, 20, 0.7);
+            border-bottom: 1px solid rgba(38, 56, 78, 0.3);
+            position: relative;
+        }
+
+        .header-back {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: none;
+            border: none;
+            color: var(--tg-blue);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .profile-avatar {
+            width: 105px;
+            height: 105px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            object-fit: cover;
+            box-shadow: 0 0 20px rgba(36, 161, 222, 0.3);
+            border: 2px solid rgba(36, 161, 222, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #1fa4e3, #0f6fa1);
+        }
+
+        .name-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .profile-display-name {
+            font-size: 23px;
+            font-weight: 600;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+        }
+
+        /* Неоновая маска */
+        .premium-mask-icon {
+            width: 24px;
+            height: 24px;
+            filter: drop-shadow(0 0 6px var(--tg-blue));
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(1); filter: drop-shadow(0 0 4px var(--tg-blue)); }
+            50% { transform: scale(1.08); filter: drop-shadow(0 0 10px #a136df); }
+            100% { transform: scale(1); filter: drop-shadow(0 0 4px var(--tg-blue)); }
+        }
+
+        .profile-status {
+            font-size: 14px;
+            color: var(--tg-blue);
+            font-weight: 500;
+        }
+
+        .info-section {
+            padding: 10px 0;
+            background: rgba(10, 15, 24, 0.15);
+            flex: 1;
+        }
+
+        .section-title {
+            font-size: 13px;
+            color: var(--tg-blue);
+            font-weight: 600;
+            padding: 12px 20px 6px 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .info-row {
+            padding: 12px 20px;
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px solid rgba(24, 37, 54, 0.25);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .info-row:hover {
+            background: var(--bg-hover);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-value {
+            font-size: 15.5px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: var(--tg-gray);
+            margin-top: 2px;
+        }
+
+        .channel-row {
+            display: flex;
+            flex-direction: row !important;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .mini-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2c3e50, #0f171e);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        /* КАНАЛ */
+        .channel-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background: rgba(16, 25, 37, 0.75);
+            border-bottom: 1px solid rgba(38, 56, 78, 0.3);
+            gap: 15px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--tg-blue);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .channel-header-info {
+            display: flex;
+            flex-direction: column;
+            max-width: 75%;
+        }
+
+        .channel-title {
+            font-size: 16px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .channel-subs {
+            font-size: 13px;
+            color: var(--tg-gray);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-body {
+            flex: 1;
+            background-color: var(--chat-bg);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        .msg-bubble {
+            background: var(--msg-in);
+            padding: 11px 14px 8px 14px;
+            border-radius: 14px 14px 14px 4px;
+            width: 85%;
+            align-self: flex-start;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .msg-text {
+            font-size: 14.5px;
+            line-height: 1.4;
+        }
+
+        .msg-meta {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--tg-gray);
+            margin-top: 5px;
+        }
+
+        .msg-reactions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .reaction-star {
+            background: linear-gradient(135deg, rgba(255, 200, 0, 0.25), rgba(255, 140, 0, 0.15));
+            border: 1px solid rgba(255, 190, 0, 0.45);
+            color: #ffcc00;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12.5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 600;
+        }
+
+        .msg-comments-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 8px;
+            padding-top: 6px;
+            color: var(--tg-blue);
+            font-size: 13.5px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* КОММЕНТАРИИ */
+        .comment-item {
+            display: flex;
+            gap: 10px;
+            background: rgba(22, 34, 49, 0.45);
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            animation: fadeInComment 0.3s ease-out;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .comment-item:hover {
+            background: rgba(36, 161, 222, 0.08);
+        }
+
+        @keyframes fadeInComment {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .comment-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .comment-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .comment-author {
+            font-size: 13.5px;
+            font-weight: 600;
+        }
+
+        .comment-text {
+            font-size: 13.5px;
+            line-height: 1.35;
+            color: #f5f5f5;
+        }
+
+        .channel-input-panel {
+            display: none;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(16, 25, 37, 0.85);
+            border-top: 1px solid rgba(38, 56, 78, 0.4);
+            gap: 10px;
+        }
+
+        .channel-input-panel input {
+            flex: 1;
+            background: rgba(9, 13, 20, 0.7);
+            border: none;
+            outline: none;
+            color: var(--tg-text);
+            padding: 10px 16px;
+            border-radius: 20px;
+            font-size: 14.5px;
+        }
+
+        .channel-input-panel button {
+            background: none;
+            border: none;
+            color: var(--tg-blue);
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        /* ОКНО ОШИБКИ */
+        .modal-overlay {
+            display: none;
+            position: fixed; 
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85); 
+            backdrop-filter: blur(8px); 
+            justify-content: center;
+            align-items: center;
+            z-index: 9999; 
+        }
+
+        .error-modal {
+            background: rgba(231, 76, 60, 0.2);
+            width: 290px; 
+            padding: 40px 20px;
+            border-radius: 20px;
+            border: 2px solid rgba(231, 76, 60, 0.6);
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9);
+        }
+
+        .error-title {
+            color: #fff; 
+            font-size: 25px;
+            font-weight: bold;
+            text-transform: lowercase;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ВИДЕО ПЛЕЕР НА ЗАДНЕМ ФОНЕ -->
+    <video class="fullscreen-bg" autoplay loop muted playsinline>
+        <source src="hack.mp4" type="video/mp4">
+    </video>
+
+    <div class="telegram-screen" id="phone-screen">
+        
+        <!-- ЭКРАН ПРОФИЛЯ -->
+        <div id="screen-profile" class="page active">
+            <div class="tg-header">
+                <button class="header-back" id="profile-back-arrow" style="display: none;" onclick="goBackToComments()">←</button>
+                <div class="profile-container">
+                    <img class="profile-avatar" id="main-prof-img" src="https://t.me/i/userpic/320/metaploit.jpg" alt="Аватар" onerror="this.style.display='none'; document.getElementById('prof-placeholder').style.display='flex';">
+                    <div id="prof-placeholder" class="profile-avatar" style="display:none;">M</div>
+                    
+                    <div class="name-wrapper">
+                        <h1 class="profile-display-name" id="prof-title-name">Metaploit</h1>
+                        <!-- SVG Анонимус -->
+                        <svg class="premium-mask-icon" id="prof-mask" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12 replyC22 6.48 22 2 12 2ZM12 19.5C8.41 19.5 5.5 16.59 5.5 13C5.5 12.18 5.66 11.4 5.94 10.69C6.63 11.39 7.61 11.81 8.7 11.81C9.69 11.81 10.58 11.42 11.23 10.8C11.53 11.44 12.19 11.88 12.95 11.88C13.63 11.88 14.23 11.52 14.56 10.98C15.25 11.5 16.11 11.81 17.05 11.81C18.23 11.81 19.29 11.31 20.03 10.53C20.33 11.3 20.5 12.13 20.5 13C20.5 16.59 17.59 19.5 12 19.5ZM8.5 7.5C9.33 7.5 10 8.17 10 9C10 9.83 9.33 10.5 8.5 10.5C7.67 10.5 7 9.83 7 9C7 8.17 7.67 7.5 8.5 7.5ZM15.5 7.5C16.33 7.5 17 8.17 17 9C17 9.83 16.33 10.5 15.5 10.5C14.67 10.5 14 9.83 14 9C14 8.17 14.67 7.5 15.5 7.5Z" fill="url(#maskGradient)"/>
+                            <defs>
+                                <linearGradient id="maskGradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="#52aeec" />
+                                    <stop offset="50%" stop-color="#a136df" />
+                                    <stop offset="100%" stop-color="#e74c3c" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <div class="section-title">Аккаунт</div>
+                <div class="info-row" id="phone-row" onclick="showError()">
+                    <span class="info-value" id="prof-phone">Неизвестно</span>
+                    <span class="info-label">Телефон</span>
+                </div>
+                <div class="info-row" id="username-row">
+                    <span class="info-value" id="prof-username" style="color: var(--tg-blue);">@metaploit</span>
+                    <span class="info-label">Имя пользователя</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-value" id="prof-bio">под программой защиты свидетелей</span>
+                    <span class="info-label">О себе</span>
+                </div>
+                <div class="info-row channel-row" id="profile-channel-block" onclick="switchPage('screen-channel')">
+                    <div class="mini-avatar">A</div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span class="info-value" style="color: var(--tg-blue); font-weight: 500;">Adapter by metaploit</span>
+                        <span class="info-label">Личный канал • 142.5K подписчиков</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ЭКРАН КАНАЛА -->
+        <div id="screen-channel" class="page">
+            <div class="channel-header">
+                <button class="back-btn" onclick="openMyProfile()">←</button>
+                <div class="mini-avatar">A</div>
+                <div class="channel-header-info">
+                    <span class="channel-title">Adapter by metaploit</span>
+                    <span class="channel-subs">142.5K подписчиков</span>
+                </div>
+            </div>
+
+            <div class="chat-body" id="chat-messages-container">
+                <div class="msg-bubble">
+                    <div class="msg-text">привет</div>
+                    <div class="msg-reactions">
+                        <div class="reaction-star">⭐️ 1.5K</div>
+                    </div>
+                    <div class="msg-comments-footer" onclick="switchPage('screen-comments')">
+                        <span>Прокомментировать</span>
+                        <span>4,288 ></span>
+                    </div>
+                    <div class="msg-meta">
+                        <span class="msg-views">👁 154.2K</span> 
+                        <span class="msg-time">12:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="channel-input-panel" id="admin-panel">
+                <input type="text" id="channel-msg-input" placeholder="Публикация..." onkeydown="if(event.key === 'Enter') sendChannelMessage()">
+                <button onclick="sendChannelMessage()">➤</button>
+            </div>
+        </div>
+
+        <!-- ЭКРАН ЖИВЫХ КОММЕНТАРИЕВ -->
+        <div id="screen-comments" class="page" onscroll="checkScroll(this)">
+            <div class="channel-header">
+                <button class="back-btn" onclick="switchPage('screen-channel')">←</button>
+                <div class="channel-header-info">
+                    <span class="channel-title" id="comments-header-title">Комментарии</span>
+                    <span class="channel-subs" id="comments-header-status" style="color: var(--tg-blue); font-weight: normal;">Adapter by metaploit</span>
+                </div>
+            </div>
+
+            <div class="chat-body" style="gap: 10px;" id="comments-container">
+                <!-- Сюда генерятся комменты -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ОКНО ОШИБКИ -->
+    <div id="error-overlay" class="modal-overlay" onclick="hideError()">
+        <div class="error-modal" id="error-card" onclick="event.stopPropagation()">
+            <div class="error-title">неа, нет</div>
+        </div>
+    </div>
+
+    <script>
+        // Базы данных «человечных» аккаунтов
+        const randomUsers = [
+            { name: "Дмитрий", tag: "@dima_tech", color: "#e74c3c", bio: "Python Developer | Автоматизация рутины | Linux user" },
+            { name: "Alex_Dev", tag: "@alex_coderx", color: "#2ecc71", bio: "Пишу чистый код на C++ и Python. Не трогай то, что работает." },
+            { name: "Elena_K", tag: "@it_elena_k", color: "#9b59b6", bio: "Frontend QA Engineer. Ищу баги там, где их быть не должно." },
+            { name: "Кирилл", tag: "@cypher_kirill", color: "#e67e22", bio: "Junior Backend. Изучаю асинхронность в Python. FastAPI ван лав." },
+            { name: "RootUser", tag: "@root_ghost", color: "#34495e", bio: "Скрипты на коленке, парсеры любой сложности. Сплю днём." },
+            { name: "Влад", tag: "@vlad_pydev", color: "#1abc9c", bio: "Занимаюсь автоматизацией процессов. Твой парсер упал." },
+            { name: "Кодер_3000", tag: "@cyber_bot3000", color: "#3498db", bio: "Пишу Telegram-ботов для удаленного управления ПК." },
+            { name: "Анна", tag: "@anya_scripts", color: "#f1c40f", bio: "Анализ данных, пандас, матплотлиб. Ищу красивые решения." },
+            { name: "FoxDEV", tag: "@fox_net", color: "#e67e22", bio: "Разработка приложений. Люблю темные темы оформления." },
+            { name: "W0rker", tag: "@work_fast", color: "#7f8c8d", bio: "Фриланс 24/7. Автоматизация парсинга и баз данных." },
+            { name: "Настя", tag: "@nastia_code", color: "#ff4757", bio: "UI/UX Designer & Python hobbyist. Делаю интерфейсы красивыми." },
+            { name: "Макс", tag: "@max_back", color: "#2ed573", bio: "DevOps в душе, кодер на проде. Автоматизирую всё, до чего дотянусь." }
+        ];
+
+        const randomPhrases = [
+            "Код просто пушка! Metaploit реально лучший, всё завелось с полтычки 🚀",
+            "Скрипт сэкономил мне кучу часов рутины, лучший автоматизатор на Python!",
+            "Дизайн интерфейса софта просто бомба, размытие слоёв шикарно смотрится.",
+            "Обновление софта — топ, скорость выполнения задач выросла раза в три!",
+            "Каждый апдейт — это шедевр, спасибо за такую качественную работу! 🔥",
+            "Моё уважение автору, разложил весь алгоритм работы библиотеки по полочкам.",
+            "Слежу за каналом с самого начала, проекты никогда не подводят по стабильности.",
+            "Топовый кодер, всегда понятная архитектура кода. Спасибо за библу!",
+            "Проект огонь, автор явно знает толк в многопоточности и асинхронности.",
+            "Скрипты просто улетают, оптимизация под капотом на высшем уровне! 💻",
+            "Юзаю софтину со старта, ни одного бага не вылезло, апдейты залетают на ура.",
+            "Спасибо за подробный гайд по развёртыванию бота, всё запустилось за пару минут.",
+            "Асинхронность тут реализована грамотно, нагрузка на проц вообще минимальная.",
+            "Лучший инструмент для парсинга, что я видел за последнее время. Респект!",
+            "Жду продолжения ветки автоматизации, фича с логами очень зашла."
+        ];
+
+        let liveChatInterval = null;
+        let typingTimeout = null;
+        let activeCommentsDatabase = []; 
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('admin') === 'true') {
+                document.getElementById('admin-panel').style.display = 'flex';
+            }
+            // Первоначальное заполнение
+            for(let i=0; i<6; i++) { generateComment(); }
+        };
+
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+
+            if (pageId === 'screen-comments') {
+                if (!liveChatInterval) {
+                    manageLiveStreamLoop();
+                }
+            } else {
+                clearInterval(liveChatInterval);
+                liveChatInterval = null;
+                clearTimeout(typingTimeout);
+                resetCommentsHeader();
+            }
+        }
+
+        // Логика печатания (один пользователь или мульти-режим)
+        function manageLiveStreamLoop() {
+            liveChatInterval = setInterval(() => {
+                const nextUser = randomUsers[Math.floor(Math.random() * randomUsers.length)];
+                
+                const headerTitle = document.getElementById('comments-header-title');
+                const headerStatus = document.getElementById('comments-header-status');
+                
+                // Шанс 40% на мульти-статус ("Настя и ещё 2 пишут...")
+                const isMultiTyping = Math.random() < 0.4;
+
+                if (isMultiTyping) {
+                    const extraCount = Math.floor(Math.random() * 4) + 2; // от 2 до 5 человек
+                    let humanizedEnding = "человека";
+                    if (extraCount === 5) humanizedEnding = "человек";
+                    
+                    headerTitle.innerText = "Комментарии";
+                    headerStatus.innerText = `${nextUser.name} и ещё ${extraCount} ${humanizedEnding} печатают...`;
+                } else {
+                    // Одиночный режим
+                    headerTitle.innerText = nextUser.name;
+                    headerStatus.innerText = "печатает...⚙️";
+                }
+                
+                headerStatus.style.color = "var(--tg-blue)";
+
+                // Публикуем коммент через 1.6 секунды после начала статуса
+                typingTimeout = setTimeout(() => {
+                    generateComment(true, nextUser);
+                    resetCommentsHeader();
+                }, 1600);
+
+            }, 3800); 
+        }
+
+        function resetCommentsHeader() {
+            const headerTitle = document.getElementById('comments-header-title');
+            const headerStatus = document.getElementById('comments-header-status');
+            if (headerTitle && headerStatus) {
+                headerTitle.innerText = "Комментарии";
+                headerStatus.innerText = "Adapter by metaploit";
+                headerStatus.style.color = "var(--tg-gray)";
+            }
+        }
+
+        function generateComment(autoScroll = false, specificUser = null) {
+            const container = document.getElementById('comments-container');
+            if (!container) return;
+            
+            const user = specificUser || randomUsers[Math.floor(Math.random() * randomUsers.length)];
+            const text = randomPhrases[Math.floor(Math.random() * randomPhrases.length)];
+            const letter = user.name.charAt(0).toUpperCase();
+            const commentId = "com-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+
+            activeCommentsDatabase[commentId] = {
+                name: user.name,
+                tag: user.tag,
+                color: user.color,
+                bio: user.bio
+            };
+
+            const item = document.createElement('div');
+            item.className = 'comment-item';
+            item.setAttribute('onclick', `openUserProfile('${commentId}')`);
+            item.innerHTML = `
+                <div class="comment-avatar" style="background: ${user.color};">${letter}</div>
+                <div class="comment-content">
+                    <span class="comment-author" style="color: ${user.color};">${user.name}</span>
+                    <span class="comment-text">${text}</span>
+                </div>
+            `;
+            container.appendChild(item);
+
+            if (autoScroll) {
+                const page = document.getElementById('screen-comments');
+                if (page.scrollHeight - page.scrollTop - page.clientHeight < 150) {
+                    page.scrollTop = page.scrollHeight;
+                }
+            }
+        }
+
+        // Клик по пользователю — переход в профиль
+        function openUserProfile(id) {
+            const userData = activeCommentsDatabase[id];
+            if (!userData) return;
+
+            document.getElementById('profile-back-arrow').style.display = 'block';
+            document.getElementById('main-prof-img').style.display = 'none';
+            
+            const placeholder = document.getElementById('prof-placeholder');
+            placeholder.style.display = 'flex';
+            placeholder.innerText = userData.name.charAt(0).toUpperCase();
+            placeholder.style.background = userData.color;
+
+            document.getElementById('prof-title-name').innerText = userData.name;
+            document.getElementById('prof-mask').style.display = 'none'; 
+            document.getElementById('prof-status-text').innerText = "был(а) недавно";
+            
+            document.getElementById('prof-phone').innerText = "Скрыт";
+            document.getElementById('prof-username').innerText = userData.tag;
+            document.getElementById('prof-bio').innerText = userData.bio;
+            
+            document.getElementById('profile-channel-block').style.display = 'none';
+
+            switchPage('screen-profile');
+        }
+
+        function goBackToComments() {
+            switchPage('screen-comments');
+        }
+
+        function openMyProfile() {
+            document.getElementById('profile-back-arrow').style.display = 'none';
+            document.getElementById('prof-placeholder').style.display = 'none';
+            
+            const mainImg = document.getElementById('main-prof-img');
+            mainImg.style.display = 'flex';
+            mainImg.src = "https://t.me/i/userpic/320/metaploit.jpg";
+
+            document.getElementById('prof-title-name').innerText = "Metaploit";
+            document.getElementById('prof-mask').style.display = 'block'; 
+            document.getElementById('prof-status-text').innerText = "Telegram Premium";
+            
+            document.getElementById('prof-phone').innerText = "Неизвестно";
+            document.getElementById('prof-username').innerText = "@metaploit";
+            document.getElementById('prof-bio').innerText = "под программой защиты свидетелей";
+            
+            document.getElementById('profile-channel-block').style.display = 'flex';
+            
+            switchPage('screen-profile');
+        }
+
+        function showError() {
+            document.getElementById('error-overlay').style.display = 'flex';
+            const screen = document.getElementById('phone-screen');
+            screen.classList.remove('animate-screen-shake');
+            void screen.offsetWidth; 
+            screen.classList.add('animate-screen-shake');
+        }
+
+        function hideError() {
+            document.getElementById('error-overlay').style.display = 'none';
+            const screen = document.getElementById('phone-screen');
+            screen.classList.remove('animate-screen-shake');
+        }
+
+        function checkScroll(element) {
+            if (element.scrollHeight - element.scrollTop - element.clientHeight < 60) {
+                for(let i=0; i<3; i++) { generateComment(); }
+            }
+        }
+
+        function sendChannelMessage() {
+            const input = document.getElementById('channel-msg-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+            const chatBody = document.getElementById('chat-messages-container');
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble';
+            bubble.innerHTML = `
+                <div class="msg-text"></div>
+                <div class="msg-meta">
+                    <span class="msg-views">👁 1</span> 
+                    <span class="msg-time">${timeStr}</span>
+                </div>
+            `;
+            bubble.querySelector('.msg-text').innerText = text;
+            chatBody.appendChild(bubble);
+            chatBody.scrollTop = chatBody.scrollHeight;
+            input.value = '';
+        }
+    </script>
+</body>
+</html>
